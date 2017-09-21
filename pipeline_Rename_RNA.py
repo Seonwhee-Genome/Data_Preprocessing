@@ -87,8 +87,7 @@ class File_Rename(Directory_Rename):
         Directory_Rename.__init__(self, date, prefix)
 
     def Files_belonging_to_A_Dir(self, InputDir, OutputDir):
-        DirNameList_1 = glob(
-            "%s*" % InputDir)  # e.g : ['/EQL8/pipeline/SGI20170718/IRCR_BT16_1021_02_RSq/IRCR_BT16_1021_02_RSq_splice.bam', '...']
+        DirNameList_1 = glob("%s*" % InputDir)  # e.g : ['/EQL8/pipeline/SGI20170718/IRCR_BT16_1021_02_RSq/IRCR_BT16_1021_02_RSq_splice.bam', '...']
         DirNameList_2 = []
         for DirName in DirNameList_1:
             DirNameList_2.append(OutputDir + DirName.split("/")[-1])
@@ -140,6 +139,7 @@ class Rename_Center(object):
         prefix = "SGI"
         self.groupName = prefix + "_" + group
         self.basedir = '/EQL8/pipeline/'
+        self.all_dir = '%s%s%s_rsq2*/' % (self.basedir, prefix, group)
         self.tdf_dir = '%s%s%s_rsq2expr/' % (self.basedir, prefix, group)
         self.bam_dir = '%s%s%s_rsq2mut/' % (self.basedir, prefix, group)
         self.skip_dir = '%s%s%s_rsq2skip/' % (self.basedir, prefix, group)
@@ -229,6 +229,75 @@ class Rename_Center(object):
                     print(origin, ">>>>>>>>>>>>>>", unlink)
                     os.symlink(origin, unlink)
 
+    def Rewrite_Textfiles(self, oldExp, newExp, LogFileList):
+
+        for afile in LogFileList:
+            lines = []
+            with open(afile, 'r') as of:
+                for line in of:
+                    if oldExp in line:
+                        print(line)
+                        line = line.replace(oldExp, newExp)
+                        print("REPLACE >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>")
+                        print(line)
+                    lines.append(line)
+            with open(afile, 'w') as wf:
+                for line in lines:
+                    wf.write(line)
+                print("%s File changed!" % afile)
+
+
+    def Rewrite_Textfiles_by_pattern(self, caseNum):
+
+        LogFileList = glob("%s*/*txt" % (self.all_dir))
+        #LogFileList = glob("%s*349*html" % (self.all_dir))
+
+        if caseNum == 1:
+            wrongPattern = ["(IRCR_[A-Z]{2,3}[0-9]{2}_[0-9]{3,4}_T_RSq)", "_T"]
+            rightPattern = ["(IRCR_[A-Z]{2,3}[0-9]{2}_[0-9]{3,4}(|_T0[1-9]|_T0[1-9]_P0)_RSq)", ""]
+
+        for afile in LogFileList:
+            os.system("cp %s %s.backup" %(afile, afile))
+            lines = []
+            with open(afile, 'r') as of:
+                for line in of:
+                    wrong_word = re.findall(wrongPattern[0], line)
+                    if len(wrong_word[0]) >= 1:
+                        print(wrong_word[0])
+                        right_word = wrong_word[0].replace(wrongPattern[1], rightPattern[1])
+                        check = re.fullmatch(rightPattern[0], right_word)
+                        if check != None:
+                            line = line.replace(wrong_word[0], right_word)
+                            print("REPLACE >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>")
+                            print(line)
+                        lines.append(line)   #### for safety
+                    else:
+                        lines.append(line)  ##### Be careful its location !!!!!!
+
+            with open(afile, 'w') as wf:
+                for line in lines:
+                    wf.write(line)
+                print("%s File changed!" % afile)
+
+    def Maintain_or_Restore(self, FileList, choice="M"):
+        for afile in FileList:
+            if afile.split(".")[-1] == "backup":
+                if choice == "M":
+                    os.system("rm -f %s")
+                    print("Remove %s" %afile)
+                elif choice == "R":
+                    os.system("mv %s %s" % (afile, afile[:-7]))
+                    print("Restore %s --> %s" % (afile, afile[:-7]))
+
+
+
+
+
+
 
 if __name__ == "__main__":
     exec_RNA("20170601", "RSq")
+
+    #trial = Rename_Center("20170607")
+    #trial.Rewrite_Textfiles_by_pattern(1)
+
