@@ -4,6 +4,7 @@ import pandas as pd
 import pymysql
 import subprocess as sp
 import os
+import git
 from pymongo import MongoClient
 from glob import glob
 
@@ -58,6 +59,35 @@ class Meta_TABLE(object):
             c.execute(query)
             c.close()
 
+class Git_Trace(object):
+
+    def __init__(self, RepoPath):
+        self.RepoPath = RepoPath
+        self.repo = git.Repo.init(RepoPath)
+        with open('%s/.gitignore' %(self.RepoPath), 'w') as gi:
+            gi.writelines("*/*bam\n*bam\n*/*bai\n*bai\n*/*gz\n*/*gsnap\n*/*zip")
+
+    def __del__(self):
+        self.repo.close()
+
+    def Git_add(self, AddList):
+        for group in AddList:
+            add = self.repo.git.add(group)
+            print(add)
+
+    def Git_commit(self, Message):
+        cmt = self.repo.git.commit(m=Message)
+        print(cmt)
+        print(self.repo.git.status())
+
+    def Git_delete(self):
+        sp.call(["rm", "-rf", "%s/.git" %(self.RepoPath)])
+        try:
+            print(self.repo.git.status())
+        except git.exc.GitCommandError as sterr:
+            print(sterr)
+            print("the git repository is successfully removed!!!")
+
 class NO_SQL(object):
     def connect_mongoDB(self):
         client = MongoClient('localhost', 5050)
@@ -74,6 +104,17 @@ class NO_SQL(object):
             BTS_ID = NGS.insert_one(A_json).inserted_id
             print(NGS.find_one({"_id": BTS_ID}))
         #BTS_ID = NGS.insert_many(jsons)
+
+    def delete_data(self):
+        name_to_delete = ["IRCR_BT15_1134_B", "IRCR_BT16_1154_B"]
+        NGS = self.connect_mongoDB()
+        for data in name_to_delete:
+            print (data)
+            target = {"ircr_name": {"$regex": data, "$options": "i"}}
+            print("We got %s data" %NGS.count(target))
+            result = NGS.delete_one(target)
+            print("We remove %s data" %result.deleted_count)
+            print("We got %s data" % NGS.count(target))
 
     def Sample_lookup(self):
         first_val = raw_input("ircr_name is ")
@@ -146,6 +187,7 @@ class NO_SQL(object):
                 for record in SeqIO.parse(Fastq, "fastq"):
                     print(record.id)
                     print(record.seq)
+                Fastq.close()
 
             else:
                 sp.check_call(["cat %s" % fileDict[forth_val]], shell=True)
@@ -154,8 +196,6 @@ class NO_SQL(object):
             print (ke)
             print ("%s has not been registered yet!!" %val)
 
-
-
 if __name__=="__main__":
     #MySQL_connection('ircr1', 'rpkm_subtype_ssgsea')
     #MySQL_connection('ircr1', 'mutation')
@@ -163,6 +203,13 @@ if __name__=="__main__":
     #MySQL_connection('ircr1', 'rpkm_gene_expr')
 
 
-    nosql = NO_SQL()
+    #nosql = NO_SQL()
     #nosql.insert_data()
-    nosql.Sample_lookup()
+    #nosql.delete_data()
+    #nosql.Sample_lookup()
+
+    gits = Git_Trace('/data1/home/jsgene/TEST')
+    gits.Git_add(["*txt"])
+    gits.Git_commit("First Commit!!!")
+    #gits.Git_delete()
+
